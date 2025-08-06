@@ -1,21 +1,20 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
-const path = require('path');
 const fetch = require('node-fetch');
-
-// --- Cloudinary Requirements ---
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 
-// --- Config from ENV or fallback (never commit secrets!) ---
+// --- CONFIGURATION ---
+// Use these as Render "environment variables"!
 const SHOP = process.env.SHOP || 'a97a69-f5.myshopify.com';
 const TOKEN = process.env.TOKEN || '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';
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'dtkn4o45z';
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '946252337563562';
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'N4bphLIBJGS0Pc59Rx9cc6E3IkM';
 
+// --- Cloudinary Setup ---
 cloudinary.config({
   cloud_name: CLOUDINARY_CLOUD_NAME,
   api_key: CLOUDINARY_API_KEY,
@@ -24,12 +23,11 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'shopify-profile-pictures',
+    folder: 'shopify-profile-pictures', // Cloudinary folder
     allowed_formats: ['jpg', 'jpeg', 'png'],
     transformation: [{ width: 400, height: 400, crop: "limit" }]
   }
 });
-
 const upload = multer({ storage: storage });
 
 // --- CORS ---
@@ -39,7 +37,6 @@ app.use(cors({
     'https://shopify-profile-upload.onrender.com'
   ]
 }));
-
 app.use(express.json());
 
 // --- Health check ---
@@ -63,15 +60,15 @@ app.get('/healthz', async (req, res) => {
   }
 });
 
-// --- Profile Image Upload Endpoint ---
+// --- The Cloudinary profile image upload! ---
 app.post('/apps/profile-image/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.json({ success: false, error: 'No file uploaded.' });
     }
-    // Cloudinary file URL:
+    // Cloudinary public URL:
     const profilePictureUrl = req.file.path;
-    // Shopify metafield payload
+    // Shopify metafield update
     const customer_id = req.body.customerid;
     const metafieldPayload = {
       customer: {
