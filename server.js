@@ -6,31 +6,30 @@ const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 
-// --- CONFIGURATION ---
-// Use these as Render "environment variables"!
+// ---- ENV VARS (configure these in Render dashboard) ----
 const SHOP = process.env.SHOP || 'a97a69-f5.myshopify.com';
 const TOKEN = process.env.TOKEN || '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';
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'dtkn4o45z';
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '946252337563562';
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'N4bphLIBJGS0Pc59Rx9cc6E3IkM';
 
-// --- Cloudinary Setup ---
+// ---- CLOUDINARY ----
 cloudinary.config({
   cloud_name: CLOUDINARY_CLOUD_NAME,
   api_key: CLOUDINARY_API_KEY,
   api_secret: CLOUDINARY_API_SECRET,
 });
 const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+  cloudinary,
   params: {
-    folder: 'shopify-profile-pictures', // Cloudinary folder
+    folder: 'shopify-profile-pictures',
     allowed_formats: ['jpg', 'jpeg', 'png'],
     transformation: [{ width: 400, height: 400, crop: "limit" }]
   }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
-// --- CORS ---
+// ---- CORS ----
 app.use(cors({
   origin: [
     'https://craftcartelonline.com.au',
@@ -39,7 +38,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// --- Health check ---
+// ---- HEALTH CHECK ENDPOINT ----
 app.get('/healthz', async (req, res) => {
   try {
     const response = await fetch(`https://${SHOP}/admin/api/2024-04/shop.json`, {
@@ -60,15 +59,15 @@ app.get('/healthz', async (req, res) => {
   }
 });
 
-// --- The Cloudinary profile image upload! ---
+// ---- PROFILE IMAGE UPLOAD ENDPOINT (fully Cloudinary) ----
 app.post('/apps/profile-image/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.json({ success: false, error: 'No file uploaded.' });
     }
-    // Cloudinary public URL:
+    // The CDN URL is req.file.path for cloudinary multer storage
     const profilePictureUrl = req.file.path;
-    // Shopify metafield update
+
     const customer_id = req.body.customerid;
     const metafieldPayload = {
       customer: {
@@ -104,5 +103,6 @@ app.post('/apps/profile-image/upload', upload.single('file'), async (req, res) =
   }
 });
 
+// ---- START SERVER ----
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}!`));
