@@ -17,7 +17,7 @@ const upload = multer({ dest: 'uploads/' });
 app.use(cors({
   origin: [
     'https://craftcartelonline.com.au',
-    'http://localhost:3000'
+    'https://shopify-profile-upload.onrender.com/'
   ]
 }));
 
@@ -58,7 +58,7 @@ app.post('/apps/profile-image/upload', upload.single('file'), async (req, res) =
     fs.renameSync(req.file.path, finalPath);
 
     // Local server URL for file (update if deploying to prod!)
-    const profilePictureUrl = `http://localhost:3000/uploads/${filename}`;
+    const profilePictureUrl = `https://shopify-profile-upload.onrender.com/uploads/${filename}`;
 
     // Wrap metafields with customer: { ... } for Shopify compatibility
     const customer_id = req.body.customerid;
