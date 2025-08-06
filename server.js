@@ -1,30 +1,48 @@
 const express = require('express');
 const app = express();
-const multer = require('multer');
-const fs = require('fs');
 const cors = require('cors');
-const fetch = require('node-fetch');
 const path = require('path');
+const fetch = require('node-fetch');
 
-// Replace these with your actual store details!
-const SHOP = 'a97a69-f5.myshopify.com';
-const TOKEN = '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';
+// --- Cloudinary Requirements ---
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const multer = require('multer');
 
-// Multer for handling local uploads
-const upload = multer({ dest: 'uploads/' });
+// --- Config from ENV or fallback (never commit secrets!) ---
+const SHOP = process.env.SHOP || 'a97a69-f5.myshopify.com';
+const TOKEN = process.env.TOKEN || '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';
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'dtkn4o45z';
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '946252337563562';
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'N4bphLIBJGS0Pc59Rx9cc6E3IkM';
 
-// Allow required origins
+cloudinary.config({
+  cloud_name: CLOUDINARY_CLOUD_NAME,
+  api_key: CLOUDINARY_API_KEY,
+  api_secret: CLOUDINARY_API_SECRET,
+});
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'shopify-profile-pictures',
+    allowed_formats: ['jpg', 'jpeg', 'png'],
+    transformation: [{ width: 400, height: 400, crop: "limit" }]
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// --- CORS ---
 app.use(cors({
   origin: [
     'https://craftcartelonline.com.au',
-    'https://shopify-profile-upload.onrender.com/'
+    'https://shopify-profile-upload.onrender.com'
   ]
 }));
 
-// Serve the uploads folder
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.json());
 
-// Health check (optional)
+// --- Health check ---
 app.get('/healthz', async (req, res) => {
   try {
     const response = await fetch(`https://${SHOP}/admin/api/2024-04/shop.json`, {
@@ -45,22 +63,15 @@ app.get('/healthz', async (req, res) => {
   }
 });
 
-// Main upload endpoint
+// --- Profile Image Upload Endpoint ---
 app.post('/apps/profile-image/upload', upload.single('file'), async (req, res) => {
   try {
-    if (!req.file || req.file.size === 0) {
-      return res.json({ success: false, error: 'No file uploaded or file is empty.' });
+    if (!req.file) {
+      return res.json({ success: false, error: 'No file uploaded.' });
     }
-
-    // Create a sanitized filename and move file to /uploads
-    const filename = `${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
-    const finalPath = path.join(__dirname, 'uploads', filename);
-    fs.renameSync(req.file.path, finalPath);
-
-    // Local server URL for file (update if deploying to prod!)
-    const profilePictureUrl = `https://shopify-profile-upload.onrender.com/uploads/${filename}`;
-
-    // Wrap metafields with customer: { ... } for Shopify compatibility
+    // Cloudinary file URL:
+    const profilePictureUrl = req.file.path;
+    // Shopify metafield payload
     const customer_id = req.body.customerid;
     const metafieldPayload = {
       customer: {
@@ -92,11 +103,9 @@ app.post('/apps/profile-image/upload', upload.single('file'), async (req, res) =
       return res.json({ success: false, error: 'Failed to update Shopify metafield: ' + respText });
     }
   } catch (err) {
-    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
     res.json({ success: false, error: err.message });
   }
 });
 
-app.listen(3000, () => console.log('Server running on port 3000!'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}!`));
